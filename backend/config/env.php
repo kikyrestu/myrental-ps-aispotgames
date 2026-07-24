@@ -38,6 +38,9 @@ load_env(__DIR__ . '/../.env');
 function env(string $key, $default = null)
 {
     $value = getenv($key);
+    if ($value === false && isset($_SERVER[$key])) {
+        $value = $_SERVER[$key];
+    }
     if ($value === false) {
         return $default;
     }
