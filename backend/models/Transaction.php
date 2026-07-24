@@ -143,6 +143,12 @@ class Transaction
         if ($pkgDuration === 0) {
             // Paket "Main Bebas" (duration = 0). Price adalah tarif per jam.
             $totalMinutes = (int) $session['duration_minutes'] + (int) ($session['extra_minutes'] ?? 0);
+            
+            // Aturan Minimum Charge 1 Jam (60 menit)
+            if ($totalMinutes < 60) {
+                $totalMinutes = 60;
+            }
+            
             return round(($totalMinutes / 60) * $pkgBasePrice, 2);
         }
 
