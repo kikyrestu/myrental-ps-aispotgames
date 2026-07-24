@@ -5,8 +5,8 @@ services:
     image: mariadb:10.11
     container_name: rentalps_db
     restart: unless-stopped
-    ports:
-      - "33066:3306" # Port unik untuk DB (Host: 33066)
+    # ports:
+    #   - "33066:3306" # Port unik untuk DB (Host: 33066) - Di-comment biar gak bentrok di host
     environment:
       MYSQL_ROOT_PASSWORD: rentalps_root_pass
       MYSQL_DATABASE: rental_ps
