@@ -1,0 +1,11 @@
+RewriteEngine On
+
+# Kalau file/folder fisik ada, langsung serve (bukan lewat router)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.php [QSA,L]
+
+# Jangan cache response API
+<IfModule mod_headers.c>
+    Header set Cache-Control "no-cache, no-store, must-revalidate"
+</IfModule>

@@ -1,0 +1,8 @@
+node_modules/
+vendor/
+.env
+.env.*
+!.env.example
+*.log
+*.sql
+.DS_Store
