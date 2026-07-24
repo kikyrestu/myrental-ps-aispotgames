@@ -40,12 +40,6 @@ export default function MasterDataPage() {
               <Clock size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} /> Paket & Tarif
             </button>
             <button 
-              className={`tab-btn ${activeTab === 'categories' ? 'is-active' : ''}`}
-              onClick={() => setActiveTab('categories')}
-            >
-              <FolderOpen size={16} style={{ display: 'inline', verticalAlign: 'middle', marginRight: '4px' }} /> Kategori
-            </button>
-            <button 
               className={`tab-btn ${activeTab === 'settings' ? 'is-active' : ''}`}
               onClick={() => setActiveTab('settings')}
             >
