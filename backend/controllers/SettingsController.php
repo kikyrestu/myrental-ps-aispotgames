@@ -14,7 +14,7 @@ class SettingsController
     public function update(Request $request): void
     {
         // Only admin should ideally do this, but we'll assume auth middleware handles basic access
-        if ($_SESSION['user_role'] !== 'admin') {
+        if (($_SESSION['role'] ?? '') !== 'admin') {
             ResponseHelper::error('Unauthorized', 403);
             return;
         }
