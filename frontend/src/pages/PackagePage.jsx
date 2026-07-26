@@ -79,8 +79,8 @@ export default function PackagePage() {
   const columns = [
     { key: 'name', label: 'Nama Paket' },
     { key: 'console_type', label: 'Tipe Unit/Console', render: (r) => <span className="unit-card__badge">{r.console_type || 'Semua'}</span> },
-    { key: 'duration_minutes', label: 'Durasi', render: (r) => `${r.duration_minutes} Menit (${r.duration_minutes / 60} Jam)` },
-    { key: 'price', label: 'Harga Tarif (Rp)', render: (r) => formatRupiah(r.price) },
+    { key: 'duration_minutes', label: 'Durasi', render: (r) => Number(r.duration_minutes) === 0 ? <span style={{ color: 'var(--success)', fontWeight: 600 }}>Main Bebas (Per Jam)</span> : `${r.duration_minutes} Menit (${r.duration_minutes / 60} Jam)` },
+    { key: 'price', label: 'Harga Tarif (Rp)', render: (r) => Number(r.duration_minutes) === 0 ? `${formatRupiah(r.price)} / jam` : formatRupiah(r.price) },
     { key: 'is_active', label: 'Status', render: (r) => r.is_active ? 'Aktif' : 'Nonaktif' },
     {
       key: 'actions',
@@ -110,22 +110,22 @@ export default function PackagePage() {
                 required 
                 value={formData.name} 
                 onChange={e => setFormData({...formData, name: e.target.value})}
-                placeholder="Contoh: Paket 1 Jam"
+                placeholder="Contoh: Paket 1 Jam atau Main Bebas"
               />
             </label>
-          <div className="form-row">
+            <div className="form-row">
               <label className="form__field" style={{ flex: 1 }}>
-                Durasi (Menit)
+                Durasi (Menit - Isi 0 u/ Main Bebas)
                 <input 
                   type="number" 
                   required 
-                  min="1"
+                  min="0"
                   value={formData.duration_minutes} 
                   onChange={e => setFormData({...formData, duration_minutes: Number(e.target.value)})}
                 />
               </label>
               <label className="form__field" style={{ flex: 1 }}>
-                Harga Tarif (Rp)
+                Harga Tarif (Rp / Per Jam)
                 <input 
                   type="number" 
                   required 
@@ -135,6 +135,9 @@ export default function PackagePage() {
                 />
               </label>
             </div>
+            <p className="form__hint" style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: '-8px', marginBottom: '12px' }}>
+              💡 <strong>Tips Main Bebas:</strong> Jika durasi diisi <strong>0</strong> (Nol), paket ini akan menjadi paket "Main Bebas / Pay As You Go". Harga di atas akan dihitung sebagai tarif <strong>PER JAM</strong>.
+            </p>
             <label className="form__field">
               Tipe Unit / Console
               <select 

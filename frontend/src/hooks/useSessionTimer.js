@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-export function useSessionTimer(startTimeStr, plannedEndTimeStr) {
+export function useSessionTimer(startTimeStr, plannedEndTimeStr, isPayAsYouGo = false) {
   const [timeLeft, setTimeLeft] = useState('');
   const [progress, setProgress] = useState(0);
   const [isOver, setIsOver] = useState(false);
@@ -15,9 +15,27 @@ export function useSessionTimer(startTimeStr, plannedEndTimeStr) {
     const startTime = new Date(startStr.replace(' ', 'T')).getTime();
     const endTime = new Date(endStr.replace(' ', 'T')).getTime();
     const totalDuration = endTime - startTime;
+    const isOpenEnded = isPayAsYouGo || (startTime === endTime) || totalDuration <= 0;
 
     const calculate = () => {
       const now = new Date().getTime();
+
+      if (isOpenEnded) {
+        setIsOver(false);
+        const elapsed = Math.max(0, now - startTime);
+        const hours = Math.floor(elapsed / (1000 * 60 * 60));
+        const minutes = Math.floor((elapsed % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((elapsed % (1000 * 60)) / 1000);
+
+        if (hours > 0) {
+          setTimeLeft(`Main: ${hours}j ${minutes}m ${seconds}s`);
+        } else {
+          setTimeLeft(`Main: ${minutes}m ${seconds}s`);
+        }
+        setProgress(100);
+        return;
+      }
+
       const remaining = endTime - now;
       
       if (remaining <= 0) {
@@ -49,7 +67,8 @@ export function useSessionTimer(startTimeStr, plannedEndTimeStr) {
     const interval = setInterval(calculate, 1000);
 
     return () => clearInterval(interval);
-  }, [startTimeStr, plannedEndTimeStr]);
+  }, [startTimeStr, plannedEndTimeStr, isPayAsYouGo]);
 
   return { timeLeft, progress, isOver };
 }
+

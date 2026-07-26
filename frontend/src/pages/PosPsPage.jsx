@@ -136,6 +136,59 @@ export default function PosPsPage() {
     });
   };
 
+  const handleStartPayAsYouGo = async () => {
+    if (!selectedUnit) return;
+    
+    let payAsYouGoPkg = packages.find(p => Number(p.duration_minutes) === 0 && (p.console_type === selectedUnit.console_type || p.console_type === 'Semua'));
+    
+    if (!payAsYouGoPkg) {
+      const oneHourPkg = packages.find(p => Number(p.duration_minutes) === 60 && (p.console_type === selectedUnit.console_type || p.console_type === 'Semua'));
+      const defaultHourlyPrice = oneHourPkg ? Number(oneHourPkg.price) : (selectedUnit.console_type.includes('PS5') ? 15000 : 10000);
+      
+      const priceStr = prompt(`Belum ada tarif Main Bebas untuk ${selectedUnit.console_type}. Masukkan tarif PER JAM (Rp):`, defaultHourlyPrice);
+      if (!priceStr) return;
+      const hourlyPrice = Number(priceStr) || defaultHourlyPrice;
+      
+      setSubmitting(true);
+      try {
+        const newPkg = await api.post('/packages', {
+          name: `Main Bebas (${selectedUnit.console_type})`,
+          duration_minutes: 0,
+          price: hourlyPrice,
+          console_type: selectedUnit.console_type,
+          is_active: 1
+        });
+        payAsYouGoPkg = newPkg;
+        await refreshAll();
+      } catch (err) {
+        setSubmitting(false);
+        showAlert('Gagal', 'Gagal membuat paket Main Bebas: ' + err.message);
+        return;
+      }
+    }
+    
+    showConfirm('Mulai Main Bebas', `Mulai sesi Main Bebas (Pay As You Go) di ${selectedUnit.name}? Tarif: ${formatRupiah(payAsYouGoPkg.price)}/jam. Bayar saat selesai main!`, async () => {
+      setSubmitting(true);
+      try {
+        await sessionsApi.start({
+          unit_id: selectedUnit.id,
+          package_id: payAsYouGoPkg.id,
+          member_id: selectedMemberId || undefined,
+          customer_name: selectedMemberId ? undefined : (customerName || 'Walk-in'),
+          session_type: 'pay_as_you_go',
+          use_deposit_time: useDepositForPackage
+        });
+        setCustomerName('');
+        setSelectedMemberId('');
+        refreshAll();
+      } catch (err) {
+        showAlert('Gagal', err.message);
+      } finally {
+        setSubmitting(false);
+      }
+    });
+  };
+
   const handleExtendTime = (minutes, label) => {
     if (!selectedSession) return;
     
@@ -257,7 +310,7 @@ export default function PosPsPage() {
               >
                 <div className="pos-card-icon">{unit.console_type.includes('PS5') ? <Gamepad2 size={16} /> : <MonitorPlay size={16} />}</div>
                 <div className="pos-card-title">{unit.name}</div>
-                <div className="pos-card-subtitle">{isMaintenance ? <><Settings size={14} /> Maintenance</> : isPlaying ? 'Sedang Main' : 'Tersedia'}</div>
+                <div className="pos-card-subtitle">{isMaintenance ? <><Settings size={14} /> Maintenance</> : isPlaying ? (Number(isPlaying.duration_minutes) === 0 || isPlaying.session_type === 'pay_as_you_go' ? 'Main Bebas' : 'Sedang Main') : 'Tersedia'}</div>
                 {isPlaying && (
                   <SessionTimerWidget session={isPlaying} compact={true} />
                 )}
@@ -376,8 +429,37 @@ export default function PosPsPage() {
               )}
             </div>
 
+            <div style={{ marginBottom: 16 }}>
+              <button 
+                className="btn btn--full" 
+                disabled={submitting} 
+                onClick={handleStartPayAsYouGo}
+                style={{
+                  background: 'linear-gradient(135deg, var(--accent), #6366f1)',
+                  color: '#fff',
+                  padding: '12px',
+                  borderRadius: '8px',
+                  fontWeight: 600,
+                  fontSize: '14px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '8px',
+                  boxShadow: '0 4px 12px rgba(99, 102, 241, 0.25)',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                <Gamepad2 size={18} /> Main Bebas (Pay As You Go)
+                <span style={{ fontSize: 11, background: 'rgba(255,255,255,0.2)', padding: '2px 6px', borderRadius: 4, fontWeight: 'normal' }}>
+                  Main dulu, bayar belakangan
+                </span>
+              </button>
+            </div>
+
             <div className="quick-add-grid">
               {packages
+                .filter(p => Number(p.duration_minutes) > 0)
                 .filter(p => {
                   if (!p.console_type || p.console_type === 'Semua') return true;
                   if (selectedUnit.console_type && selectedUnit.console_type.includes(p.console_type)) return true;
@@ -400,52 +482,64 @@ export default function PosPsPage() {
     if (selectedUnit && selectedSession) {
       // MANAGE ACTIVE SESSION
       // BUG 15 FIX: Append timezone hint — server pakai Asia/Jakarta (UTC+7)
+      const isPayAsYouGo = Number(selectedSession.duration_minutes) === 0 || selectedSession.session_type === 'pay_as_you_go';
       const plannedEndStr = selectedSession.planned_end_time?.includes('+') 
         ? selectedSession.planned_end_time 
         : selectedSession.planned_end_time + '+07:00';
-      const isOver = new Date(plannedEndStr.replace(' ', 'T')) < new Date();
+      const isOver = !isPayAsYouGo && (new Date(plannedEndStr.replace(' ', 'T')) < new Date());
       return (
         <>
           <div className="cart-header" style={{ borderBottomColor: 'var(--accent)' }}>
-            <h3>{selectedUnit.name} <span style={{ color: isOver ? 'var(--critical)' : 'var(--success)', fontSize: 12 }}>{isOver ? '(WAKTU HABIS)' : '(MAIN)'}</span></h3>
+            <h3>{selectedUnit.name} <span style={{ color: isOver ? 'var(--critical)' : 'var(--success)', fontSize: 12 }}>{isPayAsYouGo ? '(MAIN BEBAS / PAY AS YOU GO)' : isOver ? '(WAKTU HABIS)' : '(MAIN)'}</span></h3>
           </div>
           <div className="cart-body">
             
             <SessionTimerWidget session={selectedSession} />
 
-            {/* WAKTU SECTION */}
-            <div style={{ marginBottom: 24 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-                <strong style={{ fontSize: 13, color: 'var(--text-muted)' }}>TAMBAH WAKTU</strong>
+            {isPayAsYouGo ? (
+              <div style={{ marginBottom: 24, padding: '12px 16px', background: 'var(--bg-elevated)', borderRadius: 8, borderLeft: '4px solid var(--success)' }}>
+                <strong style={{ fontSize: 13, color: 'var(--success)', display: 'block', marginBottom: 4 }}>🎮 Sesi Main Bebas (Pay As You Go)</strong>
+                <p style={{ fontSize: 12, color: 'var(--text-muted)', margin: 0 }}>
+                  Waktu bermain dan tagihan dihitung otomatis per jam dari waktu mulai sampai tombol <strong>Akhiri Sesi</strong> ditekan.
+                </p>
               </div>
-              <div className="quick-add-grid">
-                <button className="btn-quick" disabled={submitting} onClick={() => handleExtendTime(15, '15 Menit')}>+15 Mnt</button>
-                <button className="btn-quick" disabled={submitting} onClick={() => handleExtendTime(30, '30 Menit')}>+30 Mnt</button>
-                <button className="btn-quick" disabled={submitting} onClick={() => handleExtendTime(60, '1 Jam')}>+1 Jam</button>
-                {packages
-                  .filter(p => p.duration_minutes > 0)
-                  .filter(p => {
-                    if (!p.console_type || p.console_type === 'Semua') return true;
-                    if (selectedUnit.console_type && selectedUnit.console_type.includes(p.console_type)) return true;
-                    return false;
-                  })
-                  .map(p => (
-                  <button key={p.id} className="btn-quick" disabled={submitting} onClick={() => handleExtendTime(p.duration_minutes, p.name)}>+{p.name}</button>
-                ))}
-              </div>
-            </div>
+            ) : (
+              <>
+                {/* WAKTU SECTION */}
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <strong style={{ fontSize: 13, color: 'var(--text-muted)' }}>TAMBAH WAKTU</strong>
+                  </div>
+                  <div className="quick-add-grid">
+                    <button className="btn-quick" disabled={submitting} onClick={() => handleExtendTime(15, '15 Menit')}>+15 Mnt</button>
+                    <button className="btn-quick" disabled={submitting} onClick={() => handleExtendTime(30, '30 Menit')}>+30 Mnt</button>
+                    <button className="btn-quick" disabled={submitting} onClick={() => handleExtendTime(60, '1 Jam')}>+1 Jam</button>
+                    {packages
+                      .filter(p => p.duration_minutes > 0)
+                      .filter(p => {
+                        if (!p.console_type || p.console_type === 'Semua') return true;
+                        if (selectedUnit.console_type && selectedUnit.console_type.includes(p.console_type)) return true;
+                        return false;
+                      })
+                      .map(p => (
+                      <button key={p.id} className="btn-quick" disabled={submitting} onClick={() => handleExtendTime(p.duration_minutes, p.name)}>+{p.name}</button>
+                    ))}
+                  </div>
+                </div>
 
-            {/* KURANGI / CANCEL WAKTU SECTION */}
-            <div style={{ marginBottom: 24 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-                <strong style={{ fontSize: 13, color: 'var(--critical)' }}>KURANGI / CANCEL WAKTU</strong>
-              </div>
-              <div className="quick-add-grid">
-                <button className="btn-quick" style={{ borderColor: 'var(--critical)', color: 'var(--critical)' }} disabled={submitting} onClick={() => handleExtendTime(-15, '15 Menit')}>-15 Mnt</button>
-                <button className="btn-quick" style={{ borderColor: 'var(--critical)', color: 'var(--critical)' }} disabled={submitting} onClick={() => handleExtendTime(-30, '30 Menit')}>-30 Mnt</button>
-                <button className="btn-quick" style={{ borderColor: 'var(--critical)', color: 'var(--critical)' }} disabled={submitting} onClick={() => handleExtendTime(-60, '1 Jam')}>-1 Jam</button>
-              </div>
-            </div>
+                {/* KURANGI / CANCEL WAKTU SECTION */}
+                <div style={{ marginBottom: 24 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+                    <strong style={{ fontSize: 13, color: 'var(--critical)' }}>KURANGI / CANCEL WAKTU</strong>
+                  </div>
+                  <div className="quick-add-grid">
+                    <button className="btn-quick" style={{ borderColor: 'var(--critical)', color: 'var(--critical)' }} disabled={submitting} onClick={() => handleExtendTime(-15, '15 Menit')}>-15 Mnt</button>
+                    <button className="btn-quick" style={{ borderColor: 'var(--critical)', color: 'var(--critical)' }} disabled={submitting} onClick={() => handleExtendTime(-30, '30 Menit')}>-30 Mnt</button>
+                    <button className="btn-quick" style={{ borderColor: 'var(--critical)', color: 'var(--critical)' }} disabled={submitting} onClick={() => handleExtendTime(-60, '1 Jam')}>-1 Jam</button>
+                  </div>
+                </div>
+              </>
+            )}
 
           </div>
           <div className="cart-footer">
@@ -459,9 +553,13 @@ export default function PosPsPage() {
                 const pkgBasePrice = Number(pkg.price);
                 const pkgDuration = Number(pkg.duration_minutes);
                 
-                if (pkgDuration === 0) {
-                  const totalMins = Number(selectedSession.duration_minutes || 0) + Number(selectedSession.extra_minutes || 0);
-                  return formatRupiah((totalMins / 60) * pkgBasePrice);
+                if (pkgDuration === 0 || Number(selectedSession.duration_minutes) === 0 || selectedSession.session_type === 'pay_as_you_go') {
+                  const startStr = selectedSession.start_time?.includes('+') ? selectedSession.start_time : selectedSession.start_time + '+07:00';
+                  const startMs = new Date(startStr.replace(' ', 'T')).getTime();
+                  const nowMs = new Date().getTime();
+                  const elapsedMins = Math.max(1, Math.round((nowMs - startMs) / 60000));
+                  const totalMins = elapsedMins + Number(selectedSession.extra_minutes || 0);
+                  return `${formatRupiah(Math.round((totalMins / 60) * pkgBasePrice))} (${totalMins} menit)`;
                 }
                 
                 let extraCharge = 0;
