@@ -141,6 +141,14 @@ class SessionController
                 $package = $pkgModel->find($session['package_id']);
             }
 
+            // Jika Main Bebas (duration_minutes == 0), hitung durasi aktual yang berjalan saat ini
+            $actualDuration = (int)$session['duration_minutes'];
+            if ($actualDuration === 0) {
+                $nowStr = date('Y-m-d H:i:s');
+                $actualDuration = max(1, (int) round((strtotime($nowStr) - strtotime($session['start_time'])) / 60));
+                $session['duration_minutes'] = $actualDuration;
+            }
+
             $trxModel = new Transaction();
             $amount = $trxModel->calculateSessionAmount($session, $unit, $package);
             $discountAmount = 0;
@@ -240,7 +248,7 @@ class SessionController
                 }
             }
 
-            $completed = $sessionModel->complete($id, $finalAmount, $promoId);
+            $completed = $sessionModel->complete($id, $finalAmount, $promoId, $actualDuration);
 
             $trxModel->create([
                 'session_id'     => $id,

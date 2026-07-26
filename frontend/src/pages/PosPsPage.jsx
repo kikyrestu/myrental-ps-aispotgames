@@ -139,7 +139,12 @@ export default function PosPsPage() {
   const handleExtendTime = (minutes, label) => {
     if (!selectedSession) return;
     
-    showConfirm('Tambah Waktu', `Yakin ingin menambah waktu ${label} untuk sesi ini?`, async () => {
+    const actionTitle = minutes < 0 ? 'Kurangi / Cancel Waktu' : 'Tambah Waktu';
+    const actionMsg = minutes < 0 
+      ? `Yakin ingin mengurangi/cancel waktu ${label} dari sesi ini?` 
+      : `Yakin ingin menambah waktu ${label} untuk sesi ini?`;
+
+    showConfirm(actionTitle, actionMsg, async () => {
       setSubmitting(true);
       try {
         await sessionsApi.extend(selectedSession.id, minutes);
@@ -183,6 +188,24 @@ export default function PosPsPage() {
         submitCompleteSession();
       });
     }
+  };
+
+  const handleCancelSession = () => {
+    if (!selectedSession) return;
+    
+    showConfirm('Batalkan Sesi', 'Yakin ingin membatalkan sesi ini? Tagihan tidak akan dicatat dan stok F&B serta deposit (jika terpakai) akan dikembalikan.', async () => {
+      setSubmitting(true);
+      try {
+        await sessionsApi.cancel(selectedSession.id);
+        setSelectedUnitId(null);
+        refreshAll();
+        showAlert('Sukses', 'Sesi berhasil dibatalkan.');
+      } catch (err) {
+        showAlert('Gagal', err.message || 'Gagal membatalkan sesi');
+      } finally {
+        setSubmitting(false);
+      }
+    });
   };
 
   const CATEGORY_LABEL = {
@@ -290,7 +313,28 @@ export default function PosPsPage() {
                 <div style={{ marginBottom: 16, padding: '12px', backgroundColor: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: '8px' }}>
                   <p style={{ margin: 0, fontSize: '13px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <span style={{ color: 'var(--text-muted)' }}>Saldo Deposit Waktu:</span>
-                    <strong style={{ color: 'var(--accent)', fontSize: '15px' }}>{selectedMemberObj.time_balance} Menit</strong>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <strong style={{ color: 'var(--accent)', fontSize: '15px' }}>{selectedMemberObj.time_balance} Menit</strong>
+                      <button 
+                        type="button" 
+                        className="btn btn--sm btn--ghost" 
+                        style={{ padding: '2px 8px', fontSize: '11px', border: '1px solid var(--accent)', color: 'var(--accent)' }}
+                        onClick={() => {
+                          const val = prompt(`Masukkan tambahan menit deposit untuk ${selectedMemberObj.name} (bisa ketik minus misal -30 untuk mengurangi):`, "60");
+                          if (val && parseInt(val) !== 0) {
+                            const amtStr = prompt(`Masukkan nominal uang bayar top-up (opsional, ketik 0 jika gratis):`, "0");
+                            const amt = parseFloat(amtStr) || 0;
+                            setSubmitting(true);
+                            membersApi.addTime(selectedMemberObj.id, parseInt(val), amt)
+                              .then(() => { refreshAll(); showAlert('Sukses', 'Saldo waktu & transaksi member berhasil diperbarui'); })
+                              .catch(err => showAlert('Gagal', err.message))
+                              .finally(() => setSubmitting(false));
+                          }
+                        }}
+                      >
+                        + / - Saldo
+                      </button>
+                    </span>
                   </p>
                   {selectedMemberObj.time_balance > 0 && (
                     <button 
@@ -391,6 +435,18 @@ export default function PosPsPage() {
               </div>
             </div>
 
+            {/* KURANGI / CANCEL WAKTU SECTION */}
+            <div style={{ marginBottom: 24 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+                <strong style={{ fontSize: 13, color: 'var(--critical)' }}>KURANGI / CANCEL WAKTU</strong>
+              </div>
+              <div className="quick-add-grid">
+                <button className="btn-quick" style={{ borderColor: 'var(--critical)', color: 'var(--critical)' }} disabled={submitting} onClick={() => handleExtendTime(-15, '15 Menit')}>-15 Mnt</button>
+                <button className="btn-quick" style={{ borderColor: 'var(--critical)', color: 'var(--critical)' }} disabled={submitting} onClick={() => handleExtendTime(-30, '30 Menit')}>-30 Mnt</button>
+                <button className="btn-quick" style={{ borderColor: 'var(--critical)', color: 'var(--critical)' }} disabled={submitting} onClick={() => handleExtendTime(-60, '1 Jam')}>-1 Jam</button>
+              </div>
+            </div>
+
           </div>
           <div className="cart-footer">
             <div className="cart-total-row">
@@ -462,6 +518,14 @@ export default function PosPsPage() {
               disabled={submitting}
             >
               Akhiri Sesi & Bayar
+            </button>
+            <button 
+              className="btn btn--full btn--ghost" 
+              style={{ marginTop: 8, border: '1px solid var(--critical)', color: 'var(--critical)', fontSize: 14, padding: '10px 16px' }}
+              onClick={handleCancelSession}
+              disabled={submitting}
+            >
+              Batalkan Sesi (Tanpa Bayar)
             </button>
           </div>
         </>

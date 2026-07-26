@@ -43,7 +43,7 @@ class Commission
                 u.name AS unit_name,
                 s.start_time,
                 s.end_time,
-                s.duration_minutes
+                (s.duration_minutes + s.extra_minutes) AS duration_minutes
             FROM commissions c
             JOIN units u ON u.id = c.unit_id
             JOIN rental_sessions s ON s.id = c.session_id

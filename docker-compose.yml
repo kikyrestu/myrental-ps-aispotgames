@@ -12,6 +12,7 @@ services:
       MYSQL_DATABASE: rental_ps
       MYSQL_USER: rentalps_user
       MYSQL_PASSWORD: rentalps_db_password
+      TZ: Asia/Jakarta
     volumes:
       - ./docker-data/mysql:/var/lib/mysql
       # Uncomment baris di bawah ini kalau mau otomatis import backup saat pertama kali run:
@@ -35,4 +36,5 @@ services:
       - DB_PASS=rentalps_db_password
       - CORS_ORIGIN=http://aispotgames.my.id
       - APP_TIMEZONE=Asia/Jakarta
+      - TZ=Asia/Jakarta
       - SESSION_LIFETIME=28800

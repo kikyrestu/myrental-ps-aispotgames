@@ -125,6 +125,7 @@ $router->post('/api/expenses', [ExpenseController::class, 'store'], ['auth']);
 $router->get('/api/members', [MemberController::class, 'index'], ['auth']);
 $router->post('/api/members', [MemberController::class, 'store'], ['auth']); // Kasir can add members
 $router->put('/api/members/{id}', [MemberController::class, 'update'], ['auth']);
+$router->post('/api/members/{id}/add-time', [MemberController::class, 'addTime'], ['auth']);
 
 // ---------------------------------------------------------------------
 // Reports

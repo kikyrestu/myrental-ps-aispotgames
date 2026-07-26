@@ -105,6 +105,12 @@ class Session
             throw new RuntimeException('Sesi sudah tidak berjalan');
         }
 
+        $newExtra = (int)$session['extra_minutes'] + $extraMinutes;
+        $totalDuration = (int)$session['duration_minutes'] + $newExtra;
+        if ($totalDuration < 0) {
+            throw new RuntimeException('Total durasi waktu bermain tidak boleh kurang dari 0 menit.');
+        }
+
         $newPlannedEnd = date('Y-m-d H:i:s', strtotime($session['planned_end_time']) + ($extraMinutes * 60));
 
         $stmt = $this->db->prepare(
@@ -127,7 +133,7 @@ class Session
      * Selesaikan sesi, hitung total biaya, bebasin unit.
      * totalAmount dihitung di controller/TransactionController supaya bisa nyambung promo (fase 3).
      */
-    public function complete(int $id, float $totalAmount, ?int $promoId = null): array
+    public function complete(int $id, float $totalAmount, ?int $promoId = null, ?int $actualDuration = null): array
     {
         $session = $this->find($id);
         if (!$session) {
@@ -137,12 +143,18 @@ class Session
             throw new RuntimeException('Sesi sudah tidak berjalan');
         }
 
+        $endTime = date('Y-m-d H:i:s');
+        $durationToSave = $actualDuration !== null ? $actualDuration : (int)$session['duration_minutes'];
+        if ($durationToSave === 0) {
+            $durationToSave = max(1, (int) round((strtotime($endTime) - strtotime($session['start_time'])) / 60));
+        }
+
         $this->db->beginTransaction();
         try {
             $stmt = $this->db->prepare(
-                'UPDATE rental_sessions SET status = "completed", end_time = NOW(), total_amount = ?, promo_id = ? WHERE id = ?'
+                'UPDATE rental_sessions SET status = "completed", end_time = ?, duration_minutes = ?, total_amount = ?, promo_id = ? WHERE id = ?'
             );
-            $stmt->execute([$totalAmount, $promoId, $id]);
+            $stmt->execute([$endTime, $durationToSave, $totalAmount, $promoId, $id]);
 
             $stmt = $this->db->prepare('UPDATE units SET status = "kosong" WHERE id = ?');
             $stmt->execute([$session['unit_id']]);
@@ -165,10 +177,11 @@ class Session
             throw new RuntimeException('Sesi sudah tidak berjalan');
         }
 
+        $endTime = date('Y-m-d H:i:s');
         $this->db->beginTransaction();
         try {
-            $stmt = $this->db->prepare('UPDATE rental_sessions SET status = "cancelled", end_time = NOW() WHERE id = ?');
-            $stmt->execute([$id]);
+            $stmt = $this->db->prepare('UPDATE rental_sessions SET status = "cancelled", end_time = ? WHERE id = ?');
+            $stmt->execute([$endTime, $id]);
 
             $stmt = $this->db->prepare('UPDATE units SET status = "kosong" WHERE id = ?');
             $stmt->execute([$session['unit_id']]);

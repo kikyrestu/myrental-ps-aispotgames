@@ -57,7 +57,7 @@ class MitraController
 
         // 5. Recent Commissions (Recent sessions)
         $stmt = $this->db->prepare('
-            SELECT c.id, c.amount, c.status, c.created_at, u.name as unit_name, rs.duration_minutes
+            SELECT c.id, c.amount, c.status, c.created_at, u.name as unit_name, (rs.duration_minutes + rs.extra_minutes) AS duration_minutes
             FROM commissions c
             JOIN units u ON c.unit_id = u.id
             JOIN rental_sessions rs ON c.session_id = rs.id

@@ -23,6 +23,7 @@ class Database
                     PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
                     PDO::ATTR_EMULATE_PREPARES   => false,
                 ]);
+                self::$instance->exec("SET time_zone = '+07:00';");
             } catch (PDOException $e) {
                 // Jangan bocorin detail koneksi ke response — log aja
                 error_log('DB Connection failed: ' . $e->getMessage());
